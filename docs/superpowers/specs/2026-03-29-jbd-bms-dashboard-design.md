@@ -163,6 +163,6 @@ Responds to JBD poll requests with realistic generated data. Point the app at `/
 ## Distribution
 
 - `pip install jbd-bms-dashboard` (PyPI)
-- Public GitHub repo: to be created (confirm GitHub username before publishing)
+- Public GitHub repo: `github.com/dpaschal/jbd-bms-dashboard`
 - `README.md` covers install, usage, simulator quickstart, and hardware wiring notes
 - MIT license
