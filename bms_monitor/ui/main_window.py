@@ -117,7 +117,11 @@ class MainWindow(QMainWindow):
 
     def _do_connect(self) -> None:
         target = self._port_combo.currentText()
-        if target.startswith("BLE"):
+        ble_address = self._port_combo.currentData()
+        if ble_address:
+            self._transport = BLETransport(self)
+            target = ble_address
+        elif target.startswith("BLE"):
             self._transport = BLETransport(self)
         else:
             self._transport = SerialTransport(self)
@@ -150,8 +154,10 @@ class MainWindow(QMainWindow):
         dlg = BLEScanDialog(self)
         if dlg.exec():
             address = dlg.selected_address()
-            self._port_combo.addItem(address)
-            self._port_combo.setCurrentText(address)
+            name = dlg.selected_name()
+            label = f"BLE: {name} [{address}]"
+            self._port_combo.addItem(label, address)
+            self._port_combo.setCurrentText(label)
 
     def _poll(self) -> None:
         if self._transport:

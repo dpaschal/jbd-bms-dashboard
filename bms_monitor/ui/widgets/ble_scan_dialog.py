@@ -29,6 +29,7 @@ class BLEScanDialog(QDialog):
         self._status = QLabel("Scanning for 5 seconds…")
         layout.addWidget(self._status)
         self._list = QListWidget()
+        self._list.setStyleSheet("QListWidget { color: white; }")
         layout.addWidget(self._list)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
@@ -49,3 +50,9 @@ class BLEScanDialog(QDialog):
         if item:
             return item.data(Qt.ItemDataRole.UserRole)
         return ""
+
+    def selected_name(self) -> str:
+        item = self._list.currentItem()
+        if item:
+            return item.text().split("  [")[0]
+        return "Unknown"
