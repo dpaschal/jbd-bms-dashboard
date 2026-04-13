@@ -11,6 +11,20 @@ class SettingsPanel(QDialog):
     def __init__(self, settings: dict, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Settings")
+        self.setStyleSheet("""
+            QDialog { background-color: #1a1a2e; color: #e2e2e2; }
+            QLabel { color: #e2e2e2; }
+            QDoubleSpinBox, QLineEdit {
+                background-color: #16213e; color: #e2e2e2;
+                border: 1px solid #0f3460; padding: 4px;
+            }
+            QCheckBox { color: #e2e2e2; }
+            QPushButton {
+                background-color: #16213e; color: #e2e2e2;
+                border: 1px solid #0f3460; padding: 6px 16px;
+            }
+            QPushButton:hover { background-color: #0f3460; }
+        """)
         self._settings = dict(settings)
         form = QFormLayout(self)
         self._cell_uv = QDoubleSpinBox(); self._cell_uv.setRange(2.0, 3.5); self._cell_uv.setSingleStep(0.01)

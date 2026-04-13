@@ -13,6 +13,8 @@ def main():
     palette.setColor(QPalette.ColorRole.WindowText, QColor("#e2e2e2"))
     palette.setColor(QPalette.ColorRole.Base, QColor("#16213e"))
     palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#0f3460"))
+    palette.setColor(QPalette.ColorRole.Text, QColor("#e2e2e2"))
+    palette.setColor(QPalette.ColorRole.PlaceholderText, QColor("#888888"))
     palette.setColor(QPalette.ColorRole.Button, QColor("#16213e"))
     palette.setColor(QPalette.ColorRole.ButtonText, QColor("#e2e2e2"))
     palette.setColor(QPalette.ColorRole.Highlight, QColor("#e94560"))

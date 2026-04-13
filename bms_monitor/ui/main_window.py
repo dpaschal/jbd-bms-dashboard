@@ -181,6 +181,7 @@ class MainWindow(QMainWindow):
         elif isinstance(result, CellVoltages):
             self._last_cells = result
             self._cells_widget.update(result)
+            self._stats_row.update_delta(result.delta * 1000)
 
     def _on_connection_changed(self, connected: bool) -> None:
         if connected:
