@@ -13,7 +13,7 @@ class SettingsPanel(QDialog):
         self.setWindowTitle("Settings")
         self.setStyleSheet("""
             QDialog { background-color: #1a1a2e; color: #e2e2e2; }
-            QLabel { color: #e2e2e2; }
+            QLabel { color: #ffffff; }
             QDoubleSpinBox, QLineEdit {
                 background-color: #16213e; color: #e2e2e2;
                 border: 1px solid #0f3460; padding: 4px;

@@ -73,12 +73,22 @@ class BLETransport(Transport):
                 break
             if start > 0:
                 del self._buf[:start]
-            end = self._buf.find(0x77, 4)
-            if end == -1:
+            # Need at least 7 bytes for smallest valid frame:
+            # 0xDD + reg + status + length + checksum(2) + 0x77
+            if len(self._buf) < 7:
                 break
-            frame = bytes(self._buf[: end + 1])
-            del self._buf[: end + 1]
-            self._emit_frame(frame)
+            # Use the length field to determine exact frame size
+            payload_len = self._buf[3]
+            frame_len = 4 + payload_len + 2 + 1  # header(4) + payload + checksum(2) + end(1)
+            if len(self._buf) < frame_len:
+                break  # Wait for more data
+            frame = bytes(self._buf[:frame_len])
+            del self._buf[:frame_len]
+            # Verify end byte before emitting
+            if frame[-1] == 0x77:
+                self._emit_frame(frame)
+            # If end byte doesn't match, frame is corrupt — data is already
+            # consumed, loop will re-sync on next 0xDD
 
     def _emit_frame(self, frame: bytes) -> None:
         self.frame_received.emit(frame)
