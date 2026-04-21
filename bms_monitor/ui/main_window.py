@@ -170,9 +170,13 @@ class MainWindow(QMainWindow):
 
     def _do_disconnect(self) -> None:
         self._poll_timer.stop()
-        if self._transport:
-            self._transport.disconnect_device()
-            self._transport = None
+        transport = self._transport
+        self._transport = None
+        if transport:
+            try:
+                transport.disconnect_device()
+            except Exception:
+                pass
         if self._db:
             self._db.close()
             self._db = None
@@ -191,6 +195,10 @@ class MainWindow(QMainWindow):
     def _poll(self) -> None:
         if self._transport:
             self._transport.send_frame(make_read_request(0x03))
+            QTimer.singleShot(200, self._poll_cells)
+
+    def _poll_cells(self) -> None:
+        if self._transport:
             self._transport.send_frame(make_read_request(0x04))
 
     def _poll_name(self) -> None:

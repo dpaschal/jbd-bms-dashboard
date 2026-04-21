@@ -21,19 +21,32 @@ class _ReaderThread(QThread):
         buf = bytearray()
         while self._running:
             try:
-                byte = self._port.read(1)
-                if not byte:
+                chunk = self._port.read(64)
+                if not chunk:
                     continue
-                b = byte[0]
-                if b == START_BYTE and not buf:
-                    buf.append(b)
-                elif buf:
-                    buf.append(b)
-                    if b == END_BYTE and len(buf) >= 7:
-                        self.raw_frame.emit(bytes(buf))
+                buf.extend(chunk)
+                while True:
+                    start = buf.find(START_BYTE)
+                    if start == -1:
                         buf.clear()
-                    elif len(buf) > MAX_FRAME:
-                        buf.clear()
+                        break
+                    if start > 0:
+                        del buf[:start]
+                    if len(buf) < 7:
+                        break
+                    payload_len = buf[3]
+                    frame_len = 4 + payload_len + 2 + 1
+                    if frame_len > MAX_FRAME:
+                        # bogus length — drop the start byte and resync
+                        del buf[:1]
+                        continue
+                    if len(buf) < frame_len:
+                        break
+                    frame = bytes(buf[:frame_len])
+                    del buf[:frame_len]
+                    if frame[-1] == END_BYTE:
+                        self.raw_frame.emit(frame)
+                    # else: corrupt frame silently dropped, loop resyncs
             except serial.SerialException as e:
                 self.error.emit(str(e))
                 break
