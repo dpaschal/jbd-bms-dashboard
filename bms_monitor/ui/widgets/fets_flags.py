@@ -18,7 +18,8 @@ class FetsFlagsWidget(QWidget):
         self._flag_labels: dict[str, QLabel] = {}
         for name in ["cell_overvolt", "cell_undervolt", "pack_overvolt",
                      "pack_undervolt", "charge_overcurrent",
-                     "discharge_overcurrent", "short_circuit", "ic_error"]:
+                     "discharge_overcurrent", "short_circuit", "ic_error",
+                     "mos_lock"]:
             lbl = QLabel(f"  {name.replace('_', ' ')}")
             lbl.setStyleSheet("color: #555; font-size: 10px;")
             layout.addWidget(lbl)
@@ -39,6 +40,7 @@ class FetsFlagsWidget(QWidget):
             "charge_overcurrent": p.charge_overcurrent,
             "discharge_overcurrent": p.discharge_overcurrent,
             "short_circuit": p.short_circuit, "ic_error": p.ic_error,
+            "mos_lock": p.mos_lock,
         }
         for name, active in flag_map.items():
             color = "#e94560" if active else "#555"

@@ -4,6 +4,7 @@ import time
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QComboBox, QLabel, QStatusBar, QSystemTrayIcon, QMenu,
+    QTabWidget,
 )
 from PyQt6.QtCore import QTimer, Qt, QEvent
 from PyQt6.QtGui import QIcon, QMouseEvent
@@ -31,7 +32,7 @@ class ClickComboBox(QComboBox):
 
 from bms_monitor.config import load_settings, save_settings
 from bms_monitor.protocol.parser import make_read_request, parse_response, ParseError
-from bms_monitor.protocol.frames import BasicInfo, CellVoltages
+from bms_monitor.protocol.frames import BasicInfo, CellVoltages, BMSInfo
 from bms_monitor.transport.serial import SerialTransport
 from bms_monitor.transport.ble import BLETransport
 from bms_monitor.storage.db import open_db, write_snapshot
@@ -39,6 +40,7 @@ from bms_monitor.alerts.checker import AlertChecker
 from bms_monitor.ui.widgets.stats_row import StatsRow
 from bms_monitor.ui.widgets.cells_widget import CellsWidget
 from bms_monitor.ui.widgets.live_chart import LiveChart
+from bms_monitor.ui.widgets.history_widget import HistoryWidget
 from bms_monitor.ui.widgets.settings_panel import SettingsPanel
 from bms_monitor.ui.widgets.alerts_banner import AlertsBanner
 
@@ -84,8 +86,12 @@ class MainWindow(QMainWindow):
         self._fets_flags = FetsFlagsWidget()
         middle.addWidget(self._fets_flags, stretch=1)
         root.addLayout(middle)
+        self._tabs = QTabWidget()
         self._live_chart = LiveChart()
-        root.addWidget(self._live_chart)
+        self._history_widget = HistoryWidget()
+        self._tabs.addTab(self._live_chart, "Live")
+        self._tabs.addTab(self._history_widget, "History")
+        root.addWidget(self._tabs)
         self._status_bar = QStatusBar()
         self.setStatusBar(self._status_bar)
         self._status_bar.showMessage("Disconnected")
@@ -155,10 +161,12 @@ class MainWindow(QMainWindow):
             os.makedirs(log_dir, exist_ok=True)
             db_path = os.path.join(log_dir, f"bms_{datetime.now():%Y-%m-%d}.db")
             self._db = open_db(db_path)
+            self._history_widget.set_db(self._db)
             self._status_bar.showMessage(f"Logging to {db_path}")
         interval_ms = int(self._poll_combo.currentData() * 1000)
         self._poll_timer.start(interval_ms)
         self._connect_btn.setText("Disconnect")
+        QTimer.singleShot(500, self._poll_name)
 
     def _do_disconnect(self) -> None:
         self._poll_timer.stop()
@@ -185,6 +193,10 @@ class MainWindow(QMainWindow):
             self._transport.send_frame(make_read_request(0x03))
             self._transport.send_frame(make_read_request(0x04))
 
+    def _poll_name(self) -> None:
+        if self._transport:
+            self._transport.send_frame(make_read_request(0x05))
+
     def _on_frame(self, raw: bytes) -> None:
         try:
             result = parse_response(raw)
@@ -199,6 +211,7 @@ class MainWindow(QMainWindow):
             self._last_basic = result
             self._stats_row.update(result)
             self._fets_flags.update(result)
+            self._cells_widget.update_balance(result.balance_bitmask)
             self._live_chart.push_basic(result)
             if self._last_cells:
                 self._checker.check(result, self._last_cells)
@@ -208,6 +221,8 @@ class MainWindow(QMainWindow):
             self._last_cells = result
             self._cells_widget.update(result)
             self._stats_row.update_delta(result.delta * 1000)
+        elif isinstance(result, BMSInfo):
+            self.setWindowTitle(f"JBD BMS Monitor — {result.name}")
 
     def _on_connection_changed(self, connected: bool) -> None:
         if connected:

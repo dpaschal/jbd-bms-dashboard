@@ -54,8 +54,9 @@ def _parse_basic_info(data: bytes) -> BasicInfo:
         raise ParseError("BasicInfo payload too short")
     (
         pack_mv, current_ma, remaining, nominal,
-        cycles, _prod_date, _bal_low, _bal_high, prot_mask,
+        cycles, _prod_date, bal_low, bal_high, prot_mask,
     ) = struct.unpack_from(">HhHHHHHHH", data, 0)
+    bal_mask = (bal_high << 16) | bal_low
 
     sw_ver, soc, fet, cell_count, temp_count = struct.unpack_from(">BBBBB", data, 18)
     temps = []
@@ -76,7 +77,7 @@ def _parse_basic_info(data: bytes) -> BasicInfo:
         temp_count=temp_count,
         temps=temps,
         protection=ProtectionFlags.from_bitmask(prot_mask),
-        balance_bitmask=0,
+        balance_bitmask=bal_mask,
     )
 
 
