@@ -1,12 +1,33 @@
 from __future__ import annotations
+import sys
 import time
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QComboBox, QLabel, QStatusBar, QSystemTrayIcon, QMenu,
 )
-from PyQt6.QtCore import QTimer, Qt
-from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import QTimer, Qt, QEvent
+from PyQt6.QtGui import QIcon, QMouseEvent
 import serial.tools.list_ports
+
+
+class ClickComboBox(QComboBox):
+    """QComboBox that opens on click-release, stays open until item clicked.
+
+    Fixes press-and-hold behavior on Fusion/Wayland where popup dismisses
+    as soon as the mouse button is released.
+    """
+    def mousePressEvent(self, e: QMouseEvent) -> None:
+        if e.button() == Qt.MouseButton.LeftButton:
+            if self.view().isVisible():
+                self.hidePopup()
+            else:
+                self.showPopup()
+            e.accept()
+            return
+        super().mousePressEvent(e)
+
+    def mouseReleaseEvent(self, e: QMouseEvent) -> None:
+        e.accept()
 
 from bms_monitor.config import load_settings, save_settings
 from bms_monitor.protocol.parser import make_read_request, parse_response, ParseError
@@ -71,7 +92,7 @@ class MainWindow(QMainWindow):
 
     def _build_toolbar(self) -> QHBoxLayout:
         bar = QHBoxLayout()
-        self._port_combo = QComboBox()
+        self._port_combo = ClickComboBox()
         self._port_combo.setMinimumWidth(160)
         self._refresh_ports()
         bar.addWidget(QLabel("Port:"))
@@ -83,7 +104,7 @@ class MainWindow(QMainWindow):
         self._connect_btn.clicked.connect(self._toggle_connect)
         bar.addWidget(self._connect_btn)
         bar.addStretch()
-        self._poll_combo = QComboBox()
+        self._poll_combo = ClickComboBox()
         for label, secs in [("0.5s", 0.5), ("1s", 1.0), ("2s", 2.0), ("5s", 5.0)]:
             self._poll_combo.addItem(label, secs)
         self._poll_combo.setCurrentIndex(1)
@@ -167,7 +188,12 @@ class MainWindow(QMainWindow):
     def _on_frame(self, raw: bytes) -> None:
         try:
             result = parse_response(raw)
-        except ParseError:
+        except ParseError as e:
+            reg = raw[1] if len(raw) > 1 else 0
+            hex_dump = raw.hex() if len(raw) < 128 else raw[:128].hex() + "..."
+            msg = f"Parse error reg=0x{reg:02x}: {e} | raw={hex_dump}"
+            print(f"[BMS] {msg}", file=sys.stderr)
+            self._status_bar.showMessage(msg[:200], 5000)
             return
         if isinstance(result, BasicInfo):
             self._last_basic = result

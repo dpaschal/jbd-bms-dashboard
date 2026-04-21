@@ -1,8 +1,12 @@
 from __future__ import annotations
 import asyncio
+import os
+import sys
 import threading
 from bleak import BleakClient, BleakScanner
 from bms_monitor.transport.base import Transport
+
+_DEBUG = os.environ.get("JBD_DEBUG") == "1"
 
 BLE_SERVICE_UUID  = "0000ff00-0000-1000-8000-00805f9b34fb"
 BLE_TX_CHAR_UUID  = "0000ff01-0000-1000-8000-00805f9b34fb"
@@ -65,6 +69,8 @@ class BLETransport(Transport):
         return None
 
     def _on_notify(self, _handle: int, data: bytearray) -> None:
+        if _DEBUG:
+            print(f"[BLE notify] {bytes(data).hex()}", file=sys.stderr)
         self._buf.extend(data)
         while True:
             start = self._buf.find(0xDD)
@@ -86,9 +92,12 @@ class BLETransport(Transport):
             del self._buf[:frame_len]
             # Verify end byte before emitting
             if frame[-1] == 0x77:
+                if _DEBUG:
+                    print(f"[BLE frame] {frame.hex()}", file=sys.stderr)
                 self._emit_frame(frame)
-            # If end byte doesn't match, frame is corrupt — data is already
-            # consumed, loop will re-sync on next 0xDD
+            else:
+                if _DEBUG:
+                    print(f"[BLE bad end] {frame.hex()}", file=sys.stderr)
 
     def _emit_frame(self, frame: bytes) -> None:
         self.frame_received.emit(frame)
