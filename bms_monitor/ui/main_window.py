@@ -31,7 +31,9 @@ class ClickComboBox(QComboBox):
         e.accept()
 
 from bms_monitor.config import load_settings, save_settings
-from bms_monitor.protocol.parser import make_read_request, parse_response, ParseError
+from bms_monitor.protocol.parser import (
+    make_read_request, make_fet_control_sequence, parse_response, ParseError,
+)
 from bms_monitor.protocol.frames import BasicInfo, CellVoltages, BMSInfo
 from bms_monitor.transport.serial import SerialTransport
 from bms_monitor.transport.ble import BLETransport
@@ -75,6 +77,7 @@ class MainWindow(QMainWindow):
         self._alerts_banner = AlertsBanner()
         root.addWidget(self._alerts_banner)
         self._stats_row = StatsRow()
+        self._stats_row.set_temp_unit(self._settings.get("temp_unit", "F"))
         root.addWidget(self._stats_row)
         middle = QHBoxLayout()
         self._cells_widget = CellsWidget()
@@ -84,6 +87,7 @@ class MainWindow(QMainWindow):
         self._settings_panel.settings_saved.connect(self._on_settings_saved)
         from bms_monitor.ui.widgets.fets_flags import FetsFlagsWidget
         self._fets_flags = FetsFlagsWidget()
+        self._fets_flags.fet_toggle_requested.connect(self._write_fet_state)
         middle.addWidget(self._fets_flags, stretch=1)
         root.addLayout(middle)
         self._tabs = QTabWidget()
@@ -100,6 +104,31 @@ class MainWindow(QMainWindow):
         bar = QHBoxLayout()
         self._port_combo = ClickComboBox()
         self._port_combo.setMinimumWidth(160)
+        self._port_combo.setMaxVisibleCount(12)
+        # Force a scrollable popup with a visible scrollbar on Fusion —
+        # Qt normally disables the scrollbar when the popup is sized by
+        # item count.
+        self._port_combo.setStyleSheet("""
+            QComboBox QAbstractItemView {
+                background-color: #16213e;
+                color: #e2e2e2;
+                selection-background-color: #0f3460;
+            }
+            QComboBox QAbstractItemView QScrollBar:vertical {
+                background: #16213e;
+                width: 12px;
+            }
+            QComboBox QAbstractItemView QScrollBar::handle:vertical {
+                background: #4ecdc4;
+                min-height: 20px;
+                border-radius: 3px;
+            }
+        """)
+        from PyQt6.QtWidgets import QListView
+        self._port_combo.setView(QListView())
+        self._port_combo.view().setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded
+        )
         self._refresh_ports()
         bar.addWidget(QLabel("Port:"))
         bar.addWidget(self._port_combo)
@@ -256,3 +285,31 @@ class MainWindow(QMainWindow):
         save_settings(new_settings)
         self._checker = AlertChecker(new_settings)
         self._checker.alert_triggered.connect(self._on_alert)
+        self._stats_row.set_temp_unit(new_settings.get("temp_unit", "F"))
+        if self._last_basic:
+            self._stats_row.update(self._last_basic)
+
+    def _write_fet_state(self, charge_on: bool, discharge_on: bool) -> None:
+        if not self._transport:
+            self._status_bar.showMessage("Not connected", 3000)
+            return
+        # Pause polling while factory-mode sequence runs.
+        self._poll_timer.stop()
+        frames = make_fet_control_sequence(charge_on, discharge_on)
+        delay = 0
+        for frame in frames:
+            QTimer.singleShot(delay, lambda f=frame: self._transport.send_frame(f) if self._transport else None)
+            delay += 250
+        # Resume polling after factory-mode exit.
+        QTimer.singleShot(delay + 300, self._resume_polling)
+        target = []
+        if charge_on: target.append("CHG")
+        else:         target.append("chg")
+        if discharge_on: target.append("DSG")
+        else:            target.append("dsg")
+        self._status_bar.showMessage(f"FET → {'/'.join(target)}", 4000)
+
+    def _resume_polling(self) -> None:
+        if self._transport:
+            interval_ms = int(self._poll_combo.currentData() * 1000)
+            self._poll_timer.start(interval_ms)

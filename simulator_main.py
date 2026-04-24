@@ -4,10 +4,10 @@ from bms_monitor.simulator.simulator import BMSSimulator, CHEMISTRY
 SCENARIOS = ["normal", "cell-drift", "overvoltage", "overtemp", "disconnect"]
 
 PRESETS = {
-    # Matt's rig — 4S LiFePO4 prismatic, ~310Ah. Default.
+    # Matt's rig — 4S LiFePO4 prismatic, 302Ah (confirmed from real BMS).
     "matt": {
-        "cells": 4, "chemistry": "lifepo4", "ah": 310.0,
-        "soc": 87, "temps": 3,
+        "cells": 4, "chemistry": "lifepo4", "ah": 302.0,
+        "soc": 69, "temps": 3,
     },
     # Small 4S LiFePO4 generic test pack.
     "4s-lifepo4": {

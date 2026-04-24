@@ -12,7 +12,14 @@ DEFAULT_SETTINGS: dict = {
     "poll_interval": 1.0,
     "log_enabled": True,
     "log_dir": str(Path.home() / ".jbd-bms"),
+    "temp_unit": "F",
 }
+
+
+def format_temp(celsius: float, unit: str = "C") -> str:
+    if unit == "F":
+        return f"{celsius * 9.0 / 5.0 + 32.0:.1f}°F"
+    return f"{celsius:.1f}°C"
 
 _CONFIG_PATH = Path.home() / ".jbd-bms" / "settings.json"
 

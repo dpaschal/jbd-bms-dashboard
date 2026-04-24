@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (
     QDialog, QFormLayout, QDoubleSpinBox, QCheckBox,
-    QLineEdit, QDialogButtonBox,
+    QLineEdit, QDialogButtonBox, QComboBox,
 )
 from PyQt6.QtCore import pyqtSignal
 
@@ -34,11 +34,14 @@ class SettingsPanel(QDialog):
         self._current_max = QDoubleSpinBox(); self._current_max.setRange(1.0, 500.0)
         self._log_enabled = QCheckBox()
         self._log_dir = QLineEdit()
+        self._temp_unit = QComboBox()
+        self._temp_unit.addItems(["F", "C"])
         form.addRow("Cell undervolt (V):", self._cell_uv)
         form.addRow("Cell overvolt (V):", self._cell_ov)
         form.addRow("Pack undervolt (V):", self._pack_uv)
         form.addRow("Max temp (°C):", self._temp_max)
         form.addRow("Max current (A):", self._current_max)
+        form.addRow("Temperature unit:", self._temp_unit)
         form.addRow("Enable logging:", self._log_enabled)
         form.addRow("Log directory:", self._log_dir)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
@@ -56,6 +59,8 @@ class SettingsPanel(QDialog):
         self._current_max.setValue(s.get("current_max", 100.0))
         self._log_enabled.setChecked(s.get("log_enabled", True))
         self._log_dir.setText(s.get("log_dir", "~/.jbd-bms"))
+        idx = self._temp_unit.findText(s.get("temp_unit", "F"))
+        self._temp_unit.setCurrentIndex(max(0, idx))
 
     def _save(self) -> None:
         self._settings.update({
@@ -66,6 +71,7 @@ class SettingsPanel(QDialog):
             "current_max": self._current_max.value(),
             "log_enabled": self._log_enabled.isChecked(),
             "log_dir": self._log_dir.text(),
+            "temp_unit": self._temp_unit.currentText(),
         })
         self.settings_saved.emit(self._settings)
         self.accept()

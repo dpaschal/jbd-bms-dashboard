@@ -46,7 +46,9 @@ def _encode_basic_info(state: dict, cell_count: int, temp_count: int) -> bytes:
         state["cycles"], 0x0000, bal_low, bal_high,
         state["protection_mask"],
     )
-    fet = 0x03 if not state.get("fet_off") else 0x00
+    charge_bit = 0x01 if state.get("fet_charge", True) else 0x00
+    discharge_bit = 0x02 if state.get("fet_discharge", True) else 0x00
+    fet = charge_bit | discharge_bit
     data += bytes([0x20, state["soc"], fet, cell_count, temp_count])
     for i in range(temp_count):
         t = state["temps"][i] if i < len(state["temps"]) else state["temps"][-1]
@@ -101,7 +103,8 @@ class BMSSimulator:
             "cycles": 12,
             "protection_mask": 0x0000,
             "balance_mask": 0,
-            "fet_off": False,
+            "fet_charge": True,
+            "fet_discharge": True,
         }
 
     def _cell_voltages(self) -> list[float]:
@@ -192,10 +195,26 @@ class BMSSimulator:
                 break
 
     def _handle_request(self, port: serial.Serial, req: bytes) -> None:
-        if len(req) < 4 or req[0] != START or req[1] != READ_CMD:
+        if len(req) < 4 or req[0] != START:
             return
+        cmd = req[1]
         reg = req[2]
         if self.scenario == "disconnect":
+            return
+        if cmd == 0x5A:
+            # Write. Payload: req[4 : 4+len]. Acknowledge silently unless FET.
+            length = req[3]
+            payload = req[4: 4 + length]
+            if reg == 0xE1 and len(payload) >= 2:
+                mask = payload[1]
+                discharge_off = bool(mask & 0x01)
+                charge_off = bool(mask & 0x02)
+                self._state["fet_discharge"] = not discharge_off
+                self._state["fet_charge"] = not charge_off
+                # encode a "bit 0 of fet byte = charge, bit 1 = discharge"
+                # at the BasicInfo layer
+            return
+        if cmd != READ_CMD:
             return
         if reg == 0x03:
             data = _encode_basic_info(self._state, self.cell_count, self.temp_count)

@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QVBoxLayout, QFrame, QGridLayout
 from PyQt6.QtCore import Qt
 from bms_monitor.protocol.frames import BasicInfo
+from bms_monitor.config import format_temp
 
 
 class _Tile(QFrame):
@@ -77,6 +78,10 @@ class StatsRow(QWidget):
             row2.addWidget(tile)
         row2.addStretch()
         outer.addLayout(row2)
+        self._temp_unit: str = "F"
+
+    def set_temp_unit(self, unit: str) -> None:
+        self._temp_unit = unit if unit in ("C", "F") else "F"
 
     def update(self, info: BasicInfo) -> None:
         self._voltage.set_value(f"{info.pack_voltage:.2f}V")
@@ -108,7 +113,7 @@ class StatsRow(QWidget):
             if i < len(info.temps):
                 temp = info.temps[i]
                 t_color = "#e94560" if temp > 40 else "#ffeaa7"
-                tile.set_value(f"{temp:.1f}°C", t_color)
+                tile.set_value(format_temp(temp, self._temp_unit), t_color)
                 tile.setVisible(True)
             else:
                 tile.setVisible(False)

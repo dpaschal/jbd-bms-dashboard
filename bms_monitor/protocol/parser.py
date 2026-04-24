@@ -18,6 +18,41 @@ def make_read_request(register: int) -> bytes:
     return bytes([0xDD, 0xA5, register, 0x00]) + cs + bytes([0x77])
 
 
+def make_write_request(register: int, data: bytes) -> bytes:
+    """JBD write command. Frame: DD 5A <reg> <len> <data...> <cs:2> 77.
+
+    Checksum covers reg + len + data, same formula as read responses.
+    """
+    length = len(data)
+    cs = _checksum(bytes([register, length]) + data)
+    return bytes([0xDD, 0x5A, register, length]) + data + cs + bytes([0x77])
+
+
+# Factory-mode magic values for JBD FET control.
+FACTORY_UNLOCK = 0x5678
+FACTORY_LOCK   = 0x2828
+REG_FACTORY    = 0x00
+REG_FET_CTRL   = 0xE1
+
+
+def make_fet_control_sequence(charge_on: bool, discharge_on: bool) -> list[bytes]:
+    """Build the 3-frame sequence that toggles the FETs.
+
+    JBD requires entering factory mode (reg 0x00 = 0x5678), writing the
+    FET state to reg 0xE1 (bit0 = discharge off, bit1 = charge off —
+    both zero means both ON), then exiting factory mode (reg 0x00 = 0x2828).
+    """
+    mask = 0x00
+    if not discharge_on:
+        mask |= 0x01
+    if not charge_on:
+        mask |= 0x02
+    unlock = make_write_request(REG_FACTORY, FACTORY_UNLOCK.to_bytes(2, "big"))
+    set_fet = make_write_request(REG_FET_CTRL, bytes([0x00, mask]))
+    lock = make_write_request(REG_FACTORY, FACTORY_LOCK.to_bytes(2, "big"))
+    return [unlock, set_fet, lock]
+
+
 def parse_response(data: bytes) -> BasicInfo | CellVoltages | BMSInfo:
     if len(data) < 7:
         raise ParseError("frame too short")
