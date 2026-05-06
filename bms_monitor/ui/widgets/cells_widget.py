@@ -27,7 +27,8 @@ class CellsWidget(QWidget):
 
         grid_host = QWidget()
         self._layout = QGridLayout(grid_host)
-        self._layout.setSpacing(2)
+        self._layout.setHorizontalSpacing(1)
+        self._layout.setVerticalSpacing(2)
         self._layout.setContentsMargins(0, 0, 0, 0)
         # Wrap in row that left-justifies the grid so it doesn't stretch.
         grid_row = QHBoxLayout()

@@ -34,26 +34,35 @@ class FetsFlagsWidget(QWidget):
 
     def __init__(self):
         super().__init__()
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(4, 4, 4, 4)
-        layout.setSpacing(4)
+        outer = QHBoxLayout(self)
+        outer.setContentsMargins(4, 4, 4, 4)
+        outer.setSpacing(10)
 
-        layout.addWidget(QLabel("FET STATUS / TOGGLE"))
+        # Left column: FET status / toggle buttons.
+        fet_col = QVBoxLayout()
+        fet_col.setSpacing(4)
+        fet_col.addWidget(QLabel("FET STATUS"))
         self._charge_btn = _FetButton("Charge")
         self._discharge_btn = _FetButton("Discharge")
         self._charge_btn.clicked.connect(self._toggle_charge)
         self._discharge_btn.clicked.connect(self._toggle_discharge)
-        layout.addWidget(self._charge_btn)
-        layout.addWidget(self._discharge_btn)
+        fet_col.addWidget(self._charge_btn)
+        fet_col.addWidget(self._discharge_btn)
+        fet_col.addStretch()
+        outer.addLayout(fet_col, stretch=1)
 
-        layout.addSpacing(6)
-        layout.addWidget(QLabel("PROTECTION FLAGS"))
-        # 2-column grid for compact display.
+        # Right column: protection flags grid (2 cols).
+        flags_col = QVBoxLayout()
+        flags_col.setSpacing(2)
+        flags_col.addWidget(QLabel("PROTECTION FLAGS"))
         flags_host = QWidget()
         self._flags_grid = QGridLayout(flags_host)
-        self._flags_grid.setSpacing(2)
+        self._flags_grid.setHorizontalSpacing(8)
+        self._flags_grid.setVerticalSpacing(1)
         self._flags_grid.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(flags_host)
+        flags_col.addWidget(flags_host)
+        flags_col.addStretch()
+        outer.addLayout(flags_col, stretch=1)
 
         self._flag_labels: dict[str, QLabel] = {}
         names = ["cell_overvolt", "cell_undervolt", "pack_overvolt",
@@ -65,7 +74,6 @@ class FetsFlagsWidget(QWidget):
             lbl.setStyleSheet("color: #555; font-size: 10px;")
             self._flags_grid.addWidget(lbl, i // 2, i % 2)
             self._flag_labels[name] = lbl
-        layout.addStretch()
 
     def _toggle_charge(self) -> None:
         self.fet_toggle_requested.emit(

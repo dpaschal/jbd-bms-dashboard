@@ -21,7 +21,7 @@ def _plot(title: str, ylabel: str) -> pg.PlotWidget:
     p.setLabel("left", ylabel)
     p.setLabel("bottom", "")
     p.addLegend(offset=(60, 4))
-    p.setMinimumHeight(90)
+    p.setMinimumHeight(110)
     return p
 
 
