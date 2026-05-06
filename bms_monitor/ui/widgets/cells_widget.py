@@ -27,8 +27,14 @@ class CellsWidget(QWidget):
 
         grid_host = QWidget()
         self._layout = QGridLayout(grid_host)
-        self._layout.setSpacing(4)
-        outer.addWidget(grid_host)
+        self._layout.setSpacing(2)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        # Wrap in row that left-justifies the grid so it doesn't stretch.
+        grid_row = QHBoxLayout()
+        grid_row.setContentsMargins(0, 0, 0, 0)
+        grid_row.addWidget(grid_host)
+        grid_row.addStretch()
+        outer.addLayout(grid_row)
 
         self._bars: list[tuple[QProgressBar, QLabel, QLabel]] = []
         self._balance_mask: int = 0
@@ -58,7 +64,8 @@ class CellsWidget(QWidget):
                 bar.setOrientation(Qt.Orientation.Vertical)
                 bar.setRange(2800, 3700)
                 bar.setTextVisible(False)
-                bar.setFixedWidth(28)
+                bar.setFixedWidth(22)
+                bar.setFixedHeight(80)
                 lbl = QLabel("--")
                 lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 lbl.setStyleSheet("font-size: 9px;")

@@ -1,6 +1,18 @@
 from __future__ import annotations
 import struct
+from dataclasses import dataclass
 from bms_monitor.protocol.frames import BasicInfo, CellVoltages, BMSInfo, ProtectionFlags
+
+
+@dataclass
+class WriteAck:
+    """Short response from BMS confirming a write command."""
+    register: int
+    status: int
+
+    @property
+    def ok(self) -> bool:
+        return self.status == 0x00
 
 
 class ParseError(Exception):
@@ -29,31 +41,34 @@ def make_write_request(register: int, data: bytes) -> bytes:
 
 
 # Factory-mode magic values for JBD FET control.
-FACTORY_UNLOCK = 0x5678
-FACTORY_LOCK   = 0x2828
-REG_FACTORY    = 0x00
-REG_FET_CTRL   = 0xE1
+# Per JBD spec: unlock writes 0x5678 to reg 0x00, lock writes 0x2828
+# to reg 0x01. Mixing those up returns BMS error status 0x82.
+FACTORY_UNLOCK_MAGIC = 0x5678
+FACTORY_LOCK_MAGIC   = 0x2828
+REG_FACTORY_UNLOCK   = 0x00
+REG_FACTORY_LOCK     = 0x01
+REG_FET_CTRL         = 0xE1
 
 
 def make_fet_control_sequence(charge_on: bool, discharge_on: bool) -> list[bytes]:
     """Build the 3-frame sequence that toggles the FETs.
 
-    JBD requires entering factory mode (reg 0x00 = 0x5678), writing the
-    FET state to reg 0xE1 (bit0 = discharge off, bit1 = charge off —
-    both zero means both ON), then exiting factory mode (reg 0x00 = 0x2828).
+    Sequence: unlock factory mode (reg 0x00 = 0x5678), write FET state
+    to reg 0xE1 (bit0 = discharge OFF, bit1 = charge OFF — zero bits
+    mean ON), lock factory mode (reg 0x01 = 0x2828).
     """
     mask = 0x00
     if not discharge_on:
         mask |= 0x01
     if not charge_on:
         mask |= 0x02
-    unlock = make_write_request(REG_FACTORY, FACTORY_UNLOCK.to_bytes(2, "big"))
+    unlock = make_write_request(REG_FACTORY_UNLOCK, FACTORY_UNLOCK_MAGIC.to_bytes(2, "big"))
     set_fet = make_write_request(REG_FET_CTRL, bytes([0x00, mask]))
-    lock = make_write_request(REG_FACTORY, FACTORY_LOCK.to_bytes(2, "big"))
+    lock = make_write_request(REG_FACTORY_LOCK, FACTORY_LOCK_MAGIC.to_bytes(2, "big"))
     return [unlock, set_fet, lock]
 
 
-def parse_response(data: bytes) -> BasicInfo | CellVoltages | BMSInfo:
+def parse_response(data: bytes) -> BasicInfo | CellVoltages | BMSInfo | WriteAck:
     if len(data) < 7:
         raise ParseError("frame too short")
     if data[0] != 0xDD:
@@ -72,6 +87,12 @@ def parse_response(data: bytes) -> BasicInfo | CellVoltages | BMSInfo:
         raise ParseError(
             f"checksum mismatch: got {cs_received.hex()}, expected {cs_expected.hex()}"
         )
+
+    # Short empty-payload frames are write acknowledgments — return them
+    # as WriteAck even if status is non-zero so the caller can decide.
+    if length == 0 and reg not in (0x03, 0x04, 0x05):
+        return WriteAck(register=reg, status=status)
+
     if status != 0x00:
         raise ParseError(f"BMS reported error status: {status:#x}")
 

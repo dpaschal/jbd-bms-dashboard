@@ -1,4 +1,4 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog, QLabel
 import pyqtgraph as pg
 import sqlite3
 from bms_monitor.storage.db import query_snapshots, export_csv
@@ -20,9 +20,13 @@ class HistoryWidget(QWidget):
         layout.addLayout(controls)
         self._plot = pg.PlotWidget(background="#16213e")
         self._plot.showGrid(x=True, y=True, alpha=0.2)
+        self._plot.addLegend(offset=(60, 10))
         self._v_curve = self._plot.plot(pen=pg.mkPen("#4ecdc4", width=2), name="Voltage")
         self._soc_curve = self._plot.plot(pen=pg.mkPen("#45b7d1", width=1), name="SOC")
         layout.addWidget(self._plot)
+        self._stats = QLabel("--")
+        self._stats.setStyleSheet("color: #cfd8dc; font-size: 10px;")
+        layout.addWidget(self._stats)
         self._conn: sqlite3.Connection | None = None
 
     def set_db(self, conn: sqlite3.Connection) -> None:
@@ -36,10 +40,18 @@ class HistoryWidget(QWidget):
         if not rows:
             return
         ts = [r["ts"] - rows[0]["ts"] for r in rows]
-        vs = [r["pack_voltage"] for r in rows]
-        socs = [r["soc"] for r in rows]
+        vs = [r["pack_voltage"] for r in rows if r["pack_voltage"] is not None]
+        socs = [r["soc"] for r in rows if r["soc"] is not None]
+        currents = [r["current"] for r in rows if r["current"] is not None]
         self._v_curve.setData(ts, vs)
         self._soc_curve.setData(ts, socs)
+        if vs and currents:
+            self._stats.setText(
+                f"V min {min(vs):.2f}  max {max(vs):.2f}   "
+                f"SOC min {min(socs)}%  max {max(socs)}%   "
+                f"I min {min(currents):.1f}A  max {max(currents):.1f}A   "
+                f"({len(rows)} samples)"
+            )
 
     def _export(self) -> None:
         if not self._conn:

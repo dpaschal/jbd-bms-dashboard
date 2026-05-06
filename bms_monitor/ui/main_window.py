@@ -32,7 +32,8 @@ class ClickComboBox(QComboBox):
 
 from bms_monitor.config import load_settings, save_settings
 from bms_monitor.protocol.parser import (
-    make_read_request, make_fet_control_sequence, parse_response, ParseError,
+    make_read_request, make_fet_control_sequence, parse_response,
+    ParseError, WriteAck,
 )
 from bms_monitor.protocol.frames import BasicInfo, CellVoltages, BMSInfo
 from bms_monitor.transport.serial import SerialTransport
@@ -54,7 +55,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("JBD BMS Monitor")
-        self.setMinimumSize(900, 650)
+        # Netbook-friendly: smaller minimum so widget squish less aggressive.
+        self.setMinimumSize(800, 560)
         self._settings = load_settings()
         self._transport = None
         self._db: sqlite3.Connection | None = None
@@ -80,15 +82,16 @@ class MainWindow(QMainWindow):
         self._stats_row.set_temp_unit(self._settings.get("temp_unit", "F"))
         root.addWidget(self._stats_row)
         middle = QHBoxLayout()
+        middle.setSpacing(8)
         self._cells_widget = CellsWidget()
-        middle.addWidget(self._cells_widget, stretch=3)
+        middle.addWidget(self._cells_widget, stretch=2)
         self._settings_panel = SettingsPanel(self._settings, self)
         self._settings_panel.setVisible(False)
         self._settings_panel.settings_saved.connect(self._on_settings_saved)
         from bms_monitor.ui.widgets.fets_flags import FetsFlagsWidget
         self._fets_flags = FetsFlagsWidget()
         self._fets_flags.fet_toggle_requested.connect(self._write_fet_state)
-        middle.addWidget(self._fets_flags, stretch=1)
+        middle.addWidget(self._fets_flags, stretch=2)
         root.addLayout(middle)
         self._tabs = QTabWidget()
         self._live_chart = LiveChart()
@@ -260,6 +263,16 @@ class MainWindow(QMainWindow):
             self._stats_row.update_delta(result.delta * 1000)
         elif isinstance(result, BMSInfo):
             self.setWindowTitle(f"JBD BMS Monitor — {result.name}")
+        elif isinstance(result, WriteAck):
+            if result.ok:
+                self._status_bar.showMessage(
+                    f"Write reg 0x{result.register:02x} OK", 2000
+                )
+            else:
+                self._status_bar.showMessage(
+                    f"Write reg 0x{result.register:02x} FAILED status=0x{result.status:02x}",
+                    5000,
+                )
 
     def _on_connection_changed(self, connected: bool) -> None:
         if connected:
