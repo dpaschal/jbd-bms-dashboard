@@ -104,7 +104,7 @@ class MainWindow(QMainWindow):
         bar = QHBoxLayout()
         self._port_combo = ClickComboBox()
         self._port_combo.setMinimumWidth(160)
-        self._port_combo.setMaxVisibleCount(12)
+        self._port_combo.setMaxVisibleItems(12)
         # Force a scrollable popup with a visible scrollbar on Fusion —
         # Qt normally disables the scrollbar when the popup is sized by
         # item count.
